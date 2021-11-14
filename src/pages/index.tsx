@@ -1,21 +1,19 @@
 import { Link } from "@chakra-ui/layout";
-import { withUrqlClient } from "next-urql";
 import { Layout } from "../components/Layout";
-import { usePostsQuery } from "../generated/graphql";
-import { createUrqlClient } from "../utils/createUrqlClient";
+import { PostsQuery, usePostsQuery } from "../generated/graphql";
 import NextLink from "next/link";
-import React, { useState } from "react";
+import React from "react";
 import { Box, Button, Flex, Heading, Stack, Text } from "@chakra-ui/react";
 import { UpdootSection } from "../components/UpdootSection";
 import { EditDeletePostButtons } from "../components/EditDeletePostButtons";
+import { withApollo } from "../utils/withApollo";
 
 const Index = () => {
-  const [variables, setVariables] = useState({
-    limit: 15,
-    cursor: null as null | string,
+  const { data, loading, fetchMore, variables } = usePostsQuery({
+    variables: { limit: 2, cursor: null },
+    notifyOnNetworkStatusChange: true,
   });
-  const [{ data, fetching }] = usePostsQuery({ variables });
-  if (!fetching && !data) {
+  if (!loading && !data) {
     return <div>you got query failed for some reason</div>;
   }
 
@@ -25,7 +23,7 @@ const Index = () => {
         <Heading>LiReddit</Heading>
       </Flex>
       <Stack spacing={8}>
-        {!data && fetching
+        {!data && loading
           ? "...loading"
           : data!.posts.posts.map(
               (p) =>
@@ -61,12 +59,34 @@ const Index = () => {
         <Flex>
           <Button
             onClick={() => {
-              setVariables({
-                ...variables,
-                cursor: data.posts.posts[data.posts.posts.length - 1].createdAt,
+              fetchMore({
+                variables: {
+                  limit: variables?.limit,
+                  cursor:
+                    data.posts.posts[data.posts.posts.length - 1].createdAt,
+                },
+                // updateQuery: (
+                //   previousValue,
+                //   { fetchMoreResult }
+                // ): PostsQuery => {
+                //   if (!fetchMoreResult) {
+                //     return previousValue as PostsQuery;
+                //   }
+                //   return {
+                //     __typename: "Query",
+                //     posts: {
+                //       __typename: "PaginatedPosts",
+                //       hasMore: (fetchMoreResult as PostsQuery).posts.hasMore,
+                //       posts: [
+                //         ...previousValue.posts.posts,
+                //         ...fetchMoreResult.posts.posts,
+                //       ],
+                //     },
+                //   };
+                // },
               });
             }}
-            isLoading={fetching}
+            isLoading={loading}
             m="auto"
             my={8}
           >
@@ -78,4 +98,4 @@ const Index = () => {
   );
 };
 
-export default withUrqlClient(createUrqlClient, { ssr: true })(Index);
+export default withApollo({ ssr: true })(Index);
